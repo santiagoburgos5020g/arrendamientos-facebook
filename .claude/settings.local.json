@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__take_screenshot",
+      "Bash(node -e ' *)",
+      "Bash(start *)",
+      "Bash(env)",
+      "Bash(node)",
+      "Bash(rm -f search-request.json)",
+      "Bash(rm -f results/candidates-temp.json results/batch1.json results/batch2.json results/generate-html.js)"
+    ]
+  }
+}

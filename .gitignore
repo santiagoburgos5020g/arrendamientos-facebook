@@ -1,0 +1,5 @@
+node_modules/
+.next/
+.env
+search-request.json
+stop-request.json

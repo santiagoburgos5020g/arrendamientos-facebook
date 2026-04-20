@@ -1,0 +1,11 @@
+{
+  "status": "complete",
+  "timestamp": "2026-04-19T23:30:00.000Z",
+  "resultFile": "2026-04-19-18-29-16-filtered.html",
+  "resultCount": 21,
+  "breakdown": {
+    "cerca": 4,
+    "media": 8,
+    "lejos": 9
+  }
+}
