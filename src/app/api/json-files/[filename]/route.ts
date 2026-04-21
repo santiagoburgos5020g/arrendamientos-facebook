@@ -8,7 +8,7 @@ export async function GET(
 ) {
   const { filename } = await params;
 
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-raw\.json$/.test(filename)) {
+  if (!/^\d{4}-\d{2}-\d{2}[T-]\d{2}-\d{2}-\d{2}-raw\.json$/.test(filename)) {
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
   }
 

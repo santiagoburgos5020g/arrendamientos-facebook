@@ -21,7 +21,9 @@ export default function Home() {
   const [serviciosPublicos, setServiciosPublicos] = useState(false);
   const [fechaPublicacion, setFechaPublicacion] = useState("cualquier_fecha");
   const [numeroResultados, setNumeroResultados] = useState("10");
+  const [cantidadPostsPorGrupo, setCantidadPostsPorGrupo] = useState("100");
   const [status, setStatus] = useState("Listo para buscar.");
+  const [isExtracting, setIsExtracting] = useState(false);
   const [keywordResults, setKeywordResults] = useState<FilteredResult[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
   const [isKeywordSearching, setIsKeywordSearching] = useState(false);
@@ -73,6 +75,7 @@ export default function Home() {
         },
         fechaPublicacion,
         numeroResultados: Number(numeroResultados) || 10,
+        cantidadPostsPorGrupo: Number(cantidadPostsPorGrupo) || 100,
       },
     };
 
@@ -150,6 +153,67 @@ export default function Home() {
       );
     } finally {
       setIsKeywordSearching(false);
+    }
+  };
+
+  const handleExtract = async () => {
+    setIsExtracting(true);
+    setStatus("Iniciando extracción...");
+
+    const urls = facebookUrls
+      .split("\n")
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0);
+
+    const payload = {
+      facebookGroupUrls: urls,
+      filters: {
+        tipoPropiedad: {
+          apartamentos,
+          apartaestudios,
+          habitaciones,
+        },
+        ubicacion,
+        cantidadPostsPorGrupo: Number(cantidadPostsPorGrupo) || 100,
+      },
+    };
+
+    try {
+      const res = await fetch("/api/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok || !res.body) {
+        setStatus("Error al iniciar la extracción.");
+        setIsExtracting(false);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              setStatus(data.message || "Procesando...");
+            } catch { /* ignore parse errors */ }
+          }
+        }
+      }
+    } catch {
+      setStatus("Error de conexión.");
+    } finally {
+      setIsExtracting(false);
     }
   };
 
@@ -406,11 +470,24 @@ export default function Home() {
               className="w-full border border-gray-300 rounded p-2"
             />
           </div>
+          {!useExistingJson && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Cantidad de Posts por Grupo:
+              </label>
+              <input
+                type="number"
+                value={cantidadPostsPorGrupo}
+                onChange={(e) => setCantidadPostsPorGrupo(e.target.value)}
+                className="w-full border border-gray-300 rounded p-2"
+              />
+            </div>
+          )}
         </div>
       </fieldset>
 
       {/* Buttons */}
-      <div className="flex gap-4 mb-6">
+      <div className="flex flex-wrap gap-4 mb-6">
         <button
           onClick={handleSearch}
           className="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-2 rounded"
@@ -429,6 +506,19 @@ export default function Home() {
           }`}
         >
           {isKeywordSearching ? "Buscando..." : "Buscar sin AI"}
+        </button>
+        <button
+          onClick={handleExtract}
+          disabled={useExistingJson || isExtracting}
+          className={`font-semibold px-6 py-2 rounded ${
+            useExistingJson
+              ? "bg-amber-300 opacity-50 cursor-not-allowed text-white"
+              : isExtracting
+                ? "bg-amber-400 opacity-70 cursor-not-allowed text-white"
+                : "bg-amber-500 hover:bg-amber-600 text-white"
+          }`}
+        >
+          {isExtracting ? "Extrayendo..." : "Extraer publicaciones de facebook"}
         </button>
         <button
           onClick={handleStop}

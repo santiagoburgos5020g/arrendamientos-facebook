@@ -11,7 +11,16 @@
       "Bash(env)",
       "Bash(node)",
       "Bash(rm -f search-request.json)",
-      "Bash(rm -f results/candidates-temp.json results/batch1.json results/batch2.json results/generate-html.js)"
+      "Bash(rm -f results/candidates-temp.json results/batch1.json results/batch2.json results/generate-html.js)",
+      "Bash(python3 *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(npx next *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__evaluate_script",
+      "Bash(gh pr create --title 'Add keyword-based '\\\\''Buscar sin AI'\\\\'' search feature' --body ' *)",
+      "Bash(git add *)"
     ]
   }
 }

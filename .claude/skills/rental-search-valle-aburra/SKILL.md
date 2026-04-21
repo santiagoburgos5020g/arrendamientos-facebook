@@ -19,10 +19,11 @@ Build and operate a Next.js application for searching rental properties (arriend
 
 ## Workflow Overview
 
-The app has **two modes**:
+The app has **three modes**:
 
-- **Mode 1 (Apify Scraping)**: User fills filters, clicks "Buscar" → Claude reads form data via file signal → scrapes Facebook groups via Apify → saves raw JSON
+- **Mode 1 (Apify Scraping + Filtering)**: User fills filters, clicks "Buscar" → Claude reads form data via file signal → scrapes Facebook groups via Apify → saves raw JSON → proceeds to AI filtering
 - **Mode 2 (JSON Filtering)**: User selects existing raw JSON files, fills filters, clicks "Filtrar JSON" → Claude reads form data → Sonnet 4.6 filters posts → Opus 4.6 validates and removes false positives → generates HTML results table
+- **Mode 3 (Scraper Only)**: User clicks "Extraer publicaciones de facebook" → Claude reads form data via file signal → scrapes Facebook groups via Apify → saves raw JSON → **stops** (no filtering)
 
 ---
 
@@ -106,6 +107,8 @@ Build `src/app/page.tsx` with the following form. All labels, text, and placehol
 
 ### Buttons
 - **Buscar** (Mode 1) / **Filtrar JSON** (Mode 2): green button, text toggles with mode
+- **Buscar sin AI**: blue button, enabled only in Mode 2 (when "JSON existentes" checked) — client-side keyword filtering
+- **Extraer publicaciones de facebook**: amber button, enabled only when "JSON existentes" is unchecked — triggers Mode 3 (scraper only)
 - **Detener Búsqueda**: gray button, always visible
 
 ---
@@ -115,6 +118,7 @@ Build `src/app/page.tsx` with the following form. All labels, text, and placehol
 ### `POST /api/search`
 Serialize all form data into `search-request.json` at project root:
 
+For Mode 1 (`apify`) and Mode 2 (`json_filter`):
 ```json
 {
   "mode": "apify | json_filter",
@@ -134,6 +138,20 @@ Serialize all form data into `search-request.json` at project root:
 }
 ```
 
+For Mode 3 (`scraper_only`) — lean payload, no filtering fields:
+```json
+{
+  "mode": "scraper_only",
+  "timestamp": "2026-04-21T17:44:17",
+  "facebookGroupUrls": ["..."],
+  "filters": {
+    "tipoPropiedad": { "apartamentos": true, "apartaestudios": false, "habitaciones": true },
+    "ubicacion": "belén",
+    "cantidadPostsPorGrupo": 100
+  }
+}
+```
+
 ### `POST /api/stop`
 Write `stop-request.json` to project root:
 ```json
@@ -143,18 +161,30 @@ Write `stop-request.json` to project root:
 ### `GET /api/json-files`
 Read `results/` directory, return `{ "files": ["2026-04-19-17-44-17-raw.json", ...] }` listing only `*-raw.json` files.
 
+### `POST /api/extract` (Mode 3 — Scraper Only, fully automatic)
+Called directly by the "Extraer publicaciones de facebook" button. This route handles the entire Apify scraping flow server-side using **Server-Sent Events (SSE)** for real-time status updates to the UI:
+
+1. If `facebookGroupUrls` is empty: uses Apify **Google Search Scraper** (`apify/google-search-scraper`) to discover relevant Facebook groups based on `tipoPropiedad` and `ubicacion`
+2. Calls Apify **Facebook Groups Scraper** (`apify/facebook-groups-scraper`) with discovered/provided URLs
+3. Polls until complete, downloads results, saves to `results/{YYYY-MM-DD-HH-mm-ss}-raw.json`
+4. Streams progress messages to the UI status bar throughout
+
+**This route does NOT use file-based signaling** — it runs entirely within the Next.js server. No `search-request.json` is written.
+
 ---
 
 ## Step 4 — File-Based Signaling
 
-Communication between the Next.js app and Claude uses temporary JSON files:
+Communication between the Next.js app and Claude uses temporary JSON files for Mode 1 and Mode 2:
 
-1. **search-request.json**: Written by Next.js on form submit. Claude polls for this file, reads it, processes the request, then deletes it.
+1. **search-request.json**: Written by Next.js on "Buscar"/"Filtrar JSON" click. Claude polls for this file, reads it, processes the request, then deletes it.
 2. **stop-request.json**: Written by Next.js on "Detener Búsqueda" click. Claude detects it during processing, cancels the operation, and deletes the file.
+
+**Note**: Mode 3 ("Extraer publicaciones de facebook") does NOT use file-based signaling — it calls Apify directly from the Next.js backend via `POST /api/extract`.
 
 ---
 
-## Step 5 — Mode 1: Live Apify Scraping
+## Step 5 — Mode 1: Live Apify Scraping (via Claude terminal)
 
 When Claude detects `search-request.json` with `"mode": "apify"`:
 
@@ -183,6 +213,7 @@ When Claude detects `search-request.json` with `"mode": "apify"`:
 5. Download dataset items from completed run
 6. Save all posts to `results/{YYYY-MM-DD-HH-mm-ss}-raw.json` (local time, Colombia UTC-5)
 7. Report completion in the terminal
+8. Continue to Step 6 for AI filtering.
 
 ---
 
