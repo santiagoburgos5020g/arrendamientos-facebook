@@ -21,7 +21,6 @@ export default function Home() {
   const [serviciosPublicos, setServiciosPublicos] = useState(false);
   const [fechaPublicacion, setFechaPublicacion] = useState("cualquier_fecha");
   const [numeroResultados, setNumeroResultados] = useState("10");
-  const [cantidadPostsPorGrupo, setCantidadPostsPorGrupo] = useState("100");
   const [status, setStatus] = useState("Listo para buscar.");
   const [keywordResults, setKeywordResults] = useState<FilteredResult[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
@@ -74,7 +73,6 @@ export default function Home() {
         },
         fechaPublicacion,
         numeroResultados: Number(numeroResultados) || 10,
-        cantidadPostsPorGrupo: Number(cantidadPostsPorGrupo) || 100,
       },
     };
 
@@ -408,19 +406,6 @@ export default function Home() {
               className="w-full border border-gray-300 rounded p-2"
             />
           </div>
-          {!useExistingJson && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Cantidad de Posts por Grupo:
-              </label>
-              <input
-                type="number"
-                value={cantidadPostsPorGrupo}
-                onChange={(e) => setCantidadPostsPorGrupo(e.target.value)}
-                className="w-full border border-gray-300 rounded p-2"
-              />
-            </div>
-          )}
         </div>
       </fieldset>
 
