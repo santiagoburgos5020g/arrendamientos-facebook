@@ -20,7 +20,12 @@
       "mcp__chrome-devtools__fill",
       "mcp__chrome-devtools__evaluate_script",
       "Bash(gh pr create --title 'Add keyword-based '\\\\''Buscar sin AI'\\\\'' search feature' --body ' *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git stash *)"
     ]
   }
 }
