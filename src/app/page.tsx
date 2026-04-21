@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { filterPosts, type FilteredResult, type RawPost } from "@/lib/keywordFilter";
+import ResultsTable from "@/components/ResultsTable";
 
 export default function Home() {
   const [useExistingJson, setUseExistingJson] = useState(false);
@@ -21,6 +23,10 @@ export default function Home() {
   const [numeroResultados, setNumeroResultados] = useState("10");
   const [cantidadPostsPorGrupo, setCantidadPostsPorGrupo] = useState("100");
   const [status, setStatus] = useState("Listo para buscar.");
+  const [keywordResults, setKeywordResults] = useState<FilteredResult[]>([]);
+  const [totalMatches, setTotalMatches] = useState(0);
+  const [isKeywordSearching, setIsKeywordSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
     if (useExistingJson) {
@@ -92,6 +98,63 @@ export default function Home() {
     }
   };
 
+  const handleKeywordSearch = async () => {
+    if (selectedJsonFiles.length === 0) {
+      setStatus("Selecciona al menos un archivo JSON");
+      return;
+    }
+
+    setIsKeywordSearching(true);
+    setShowResults(false);
+    setStatus("Filtrando posts localmente...");
+
+    try {
+      const fetchPromises = selectedJsonFiles.map(async (filename) => {
+        const res = await fetch(`/api/json-files/${filename}`);
+        if (!res.ok) throw new Error(`Error al cargar el archivo: ${filename}`);
+        return res.json() as Promise<RawPost[]>;
+      });
+      const allPostArrays = await Promise.all(fetchPromises);
+
+      const seenUrls = new Set<string>();
+      const allPosts: RawPost[] = [];
+      for (const posts of allPostArrays) {
+        for (const post of posts) {
+          if (post.url && !seenUrls.has(post.url)) {
+            seenUrls.add(post.url);
+            allPosts.push(post);
+          }
+        }
+      }
+
+      const params = {
+        tipoPropiedad: { apartamentos, apartaestudios, habitaciones },
+        ubicacion,
+        presupuestoMaximo: presupuestoMaximo ? Number(presupuestoMaximo) : null,
+        servicios: { banoPrivado, bano, lavanderia, serviciosPublicos },
+        fechaPublicacion,
+        numeroResultados: Number(numeroResultados) || 40,
+      };
+
+      const { results, totalMatches: total } = filterPosts(allPosts, params);
+
+      setKeywordResults(results);
+      setTotalMatches(total);
+      setShowResults(true);
+      setStatus(
+        results.length === 0
+          ? "No se encontraron resultados que coincidan con los filtros."
+          : `Búsqueda completada. ${total} resultados encontrados.`
+      );
+    } catch (err) {
+      setStatus(
+        err instanceof Error ? err.message : "Error al procesar los archivos."
+      );
+    } finally {
+      setIsKeywordSearching(false);
+    }
+  };
+
   const handleStop = async () => {
     setStatus("Deteniendo búsqueda...");
     try {
@@ -121,7 +184,10 @@ export default function Home() {
           <input
             type="checkbox"
             checked={useExistingJson}
-            onChange={(e) => setUseExistingJson(e.target.checked)}
+            onChange={(e) => {
+              setUseExistingJson(e.target.checked);
+              if (!e.target.checked) setShowResults(false);
+            }}
             className="w-4 h-4"
           />
           Buscar sobre archivos JSON existentes (sin llamar a Apify)
@@ -367,6 +433,19 @@ export default function Home() {
           {useExistingJson ? "Filtrar JSON" : "Buscar"}
         </button>
         <button
+          onClick={handleKeywordSearch}
+          disabled={!useExistingJson || isKeywordSearching}
+          className={`font-semibold px-6 py-2 rounded ${
+            !useExistingJson
+              ? "bg-blue-300 opacity-50 cursor-not-allowed text-white"
+              : isKeywordSearching
+                ? "bg-blue-400 opacity-70 cursor-not-allowed text-white"
+                : "bg-blue-500 hover:bg-blue-600 text-white"
+          }`}
+        >
+          {isKeywordSearching ? "Buscando..." : "Buscar sin AI"}
+        </button>
+        <button
           onClick={handleStop}
           className="bg-gray-400 hover:bg-gray-500 text-white font-semibold px-6 py-2 rounded"
         >
@@ -378,6 +457,13 @@ export default function Home() {
       <div className="border border-gray-300 rounded p-3 bg-white text-sm text-gray-700">
         {status}
       </div>
+
+      {/* Keyword Search Results */}
+      {showResults && (
+        <div className="mt-6">
+          <ResultsTable results={keywordResults} totalMatches={totalMatches} />
+        </div>
+      )}
     </main>
   );
 }
